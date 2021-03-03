@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Plurk shadow block
 // @name:zh-tw   噗浪隱形黑名單
-// @version      0.3.0
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-tw 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
+// @version      0.3.0
+// @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
 // @grant        GM_addStyle
 // @grant        GM_getValue
