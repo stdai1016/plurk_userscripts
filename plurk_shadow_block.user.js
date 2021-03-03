@@ -4,7 +4,7 @@
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
-// @version      0.3.1
+// @version      0.3.2
 // @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
 // @grant        GM_addStyle
@@ -148,6 +148,14 @@
   function responseMutationHandler (records) {
     records.forEach(mu => {
       const $btn = $(mu.target).parent().find('.resp-hidden-show');
+      if (!mu.target.querySelector('.handle-remove')) {
+        $('<div class="handle-remove hide"></div>').prependTo(mu.target);
+      }
+      mu.removedNodes.forEach(node => {
+        if (node.classList.contains('handle-remove')) {
+          $btn.removeClass('show').addClass('hide').text(lang.resp_btn_show);
+        }
+      });
       let nBlock = 0;
       mu.addedNodes.forEach(node => {
         if (!node.classList.contains('plurk')) return;
@@ -159,9 +167,6 @@
         }
       });
       if ($btn.hasClass('hide') && nBlock) $btn.removeClass('hide');
-      if (mu.target.children.length === 0) {
-        $btn.removeClass('show').addClass('hide').text(lang.resp_btn_show);
-      }
     });
   }
 
