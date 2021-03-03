@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Plurk shadow block
 // @name:zh-tw   噗浪隱形黑名單
-// @version      0.2.0
+// @version      0.3.0
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-tw 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
@@ -17,6 +17,36 @@
 
 (function () {
   'use strict';
+  const LANG = {
+    DEFAULT: {
+      resp_btn_hide: 'Hide blocked responses',
+      resp_btn_show: 'Show blocked responses',
+      set_alert: 'Incorrect format of nick name!',
+      set_append: 'Append',
+      set_empty: 'There is no one in your blocklist.',
+      set_note:
+        'A blocked user will not be shown on responses and your timeline,' +
+        ' but is still able to see your profile, follow you,' +
+        ' respond to your plurks or befriend you.',
+      set_remove: 'Remove',
+      set_tab: 'Shadow Block'
+    },
+    'zh-hant': {
+      resp_btn_hide: '隱藏被封鎖的回應',
+      resp_btn_show: '顯示被封鎖的回應',
+      set_alert: '帳號格式不正確',
+      set_append: '新增',
+      set_empty: '沒有任何人在黑名單中',
+      set_note: '在回應區和自己的河道上看不到被封鎖者的發文、轉噗；' +
+        '但對方仍可瀏覽您的個人檔案，關注、回應您的訊息，或加您為朋友。',
+      set_remove: '移除',
+      set_tab: '隱形黑名單'
+    }
+  };
+  let lang = LANG.DEFAULT;
+  const curLang = document.body.parentElement.getAttribute('lang') || '';
+  if (curLang.toLowerCase() in LANG) lang = LANG[curLang.toLowerCase()];
+
   /* ======= storage ======= */
   const DEFAULT_VALUE = {
     replurk: true,
@@ -35,7 +65,7 @@
 
   /* ============== */
   GM_addStyle(
-    '.blocked {display:none}' +
+    '.blocked,.hide {display:none}' +
     '.resp-hidden-show {background:#f5f5f9;color:#afb8cc;' +
     '  font-weight:normal;vertical-align:top;transform:scale(0.9);opacity:0;}' +
     '.resp-hidden-show.show {opacity:1}' +
@@ -53,22 +83,24 @@
     cboxMo.observe($('#cbox_response .list')[0], { childList: true });
     makeButton($('#cbox_response>.response_box'));
   } else if (window.location.pathname === '/Friends/') {
-    $('<li><a void="">隱形黑名單</a></li>').on('click', function () {
+    $('<li><a void="">' + lang.set_tab + '</a></li>').on('click', function () {
       window.history.pushState('', document.title, '/Friends/');
       $('#pop-window-tabs>ul>li').removeClass('current');
       this.classList.add('current');
       const $content = $('#pop-window-inner-content .content_inner').empty();
       $content.append(
-        '<div class="note">在回應區和自己的河道上看不到被封鎖者的發文、轉噗</div>',
+        '<div class="note">' + lang.set_note + '</div>',
         '<div class="dashboard">' +
-        ' <div class="search_box"><input><button>新增</button></div>' +
-        ' <div class="empty">目前沒有任何人在黑名單中</div>' +
+        ' <div class="search_box"><input>' +
+        '  <button>' + lang.set_append + '</button></div>' +
+        ' <div class="empty">' + lang.set_empty + '</div>' +
         '</div>');
       const $holder = $('<div class="item_holder"></div>').appendTo($content);
       const usersInfo = [];
-      valueGetSet('blocklist').forEach(id => usersInfo.push(getUserInfo(id)));
+      valueGetSet('blocklist')
+        .forEach(id => usersInfo.push(getUserInfoAsync(id)));
       if (usersInfo.length) {
-        $content.find('.dashboard .empty').addClass('blocked');
+        $content.find('.dashboard .empty').addClass('hide');
       }
       Promise.all(usersInfo).then(infomations => infomations.forEach(info => {
         makeBlockedUserItem(info, $holder);
@@ -80,9 +112,10 @@
           blocklist.push(m[0]);
           valueGetSet('blocklist', blocklist);
           this.parentElement.children[0].value = '';
-          $content.find('.dashboard .empty').addClass('blocked');
-          getUserInfo(m[0]).then(info => makeBlockedUserItem(info, $holder));
-        } else { window.alert('帳號格式不正確'); }
+          $content.find('.dashboard .empty').addClass('hide');
+          getUserInfoAsync(m[0])
+            .then(info => makeBlockedUserItem(info, $holder));
+        } else { window.alert(lang.set_alert); }
       });
     }).appendTo('#pop-window-tabs>ul');
   } else if ($('#nav-account>span').text() ===
@@ -104,7 +137,7 @@
       mu.addedNodes.forEach(node => {
         const up = $(node).find('.td_img>.p_img a')[0].href.split('/').pop();
         const u0 = $(node).find('.td_qual a.name')[0].href.split('/').pop();
-        if (onBlockList(up) || onBlockList(u0)) {
+        if (isOnBlockList(up) || isOnBlockList(u0)) {
           node.classList.add('shadow-block', 'blocked');
         }
       });
@@ -118,7 +151,7 @@
       mu.addedNodes.forEach(node => {
         if (!node.classList.contains('plurk')) return;
         const u0 = $(node).find('a.name')[0].href.split('/').pop();
-        if (onBlockList(u0)) {
+        if (isOnBlockList(u0)) {
           nBlock += 1;
           node.classList.add('shadow-block');
           if (!$btn.hasClass('show')) node.classList.add('blocked');
@@ -126,16 +159,17 @@
       });
       if ($btn.hasClass('blocked') && nBlock) $btn.removeClass('blocked');
       if (mu.target.children.length === 0) {
-        $btn.removeClass('show').addClass('blocked').text('顯示被封鎖的回應');
+        $btn.removeClass('show').addClass('blocked').text(lang.resp_btn_show);
       }
     });
   }
 
   function makeButton ($responseBox) {
-    const $formBtn = $('<div>顯示被封鎖的回應</div>').on('click', function () {
+    const $formBtn = $('<div>' + lang.resp_btn_show + '</div>');
+    $formBtn.on('click', function () {
       $formBtn.toggleClass('show');
-      this.innerText = this.innerText.replace(/.{2}/,
-        $formBtn.hasClass('show') ? '隱藏' : '顯示');
+      this.innerText =
+        $formBtn.hasClass('show') ? lang.resp_btn_hide : lang.resp_btn_show;
       $responseBox.children('.list').children('.shadow-block')
         .toggleClass('blocked');
     }).addClass(['resp-hidden-show', 'button', 'small-button', 'blocked'])
@@ -154,7 +188,7 @@
       '</div>',
       '<div class="user_action"><a void="" data-id="' + info.id + '" ' +
         'class="friend_man icon_only pif-user-blocked has_block" ' +
-        'title="移除"></a></div>'
+        'title="' + lang.set_remove + '"></a></div>'
     );
     $u.find('a:not(.has_block)').attr('href', '/' + info.id);
     $u.find('a.has_block').on('click', function () {
@@ -171,7 +205,7 @@
     $u.appendTo(holder);
   }
 
-  function getUserInfo (id) {
+  function getUserInfoAsync (id) {
     return new Promise((resolve, reject) => {
       try {
         const xhr = new XMLHttpRequest();
@@ -193,7 +227,7 @@
     });
   }
 
-  function onBlockList (user) {
+  function isOnBlockList (user) {
     return valueGetSet('blocklist').includes(user);
   }
 })();
