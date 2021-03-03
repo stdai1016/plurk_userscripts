@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Plurk shadow block
-// @name:zh-tw   噗浪隱形黑名單
+// @name:zh-TW   噗浪隱形黑名單
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
-// @description:zh-tw 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
+// @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
-// @version      0.3.0
+// @version      0.3.1
 // @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
 // @grant        GM_addStyle
@@ -66,7 +66,7 @@
 
   /* ============== */
   GM_addStyle(
-    '.blocked,.hide {display:none}' +
+    '.hide {display:none}' +
     '.resp-hidden-show {background:#f5f5f9;color:#afb8cc;' +
     '  font-weight:normal;vertical-align:top;transform:scale(0.9);opacity:0;}' +
     '.resp-hidden-show.show {opacity:1}' +
@@ -139,7 +139,7 @@
         const up = $(node).find('.td_img>.p_img a')[0].href.split('/').pop();
         const u0 = $(node).find('.td_qual a.name')[0].href.split('/').pop();
         if (isOnBlockList(up) || isOnBlockList(u0)) {
-          node.classList.add('shadow-block', 'blocked');
+          node.classList.add('shadow-block', 'hide');
         }
       });
     });
@@ -155,12 +155,12 @@
         if (isOnBlockList(u0)) {
           nBlock += 1;
           node.classList.add('shadow-block');
-          if (!$btn.hasClass('show')) node.classList.add('blocked');
+          if (!$btn.hasClass('show')) node.classList.add('hide');
         }
       });
-      if ($btn.hasClass('blocked') && nBlock) $btn.removeClass('blocked');
+      if ($btn.hasClass('hide') && nBlock) $btn.removeClass('hide');
       if (mu.target.children.length === 0) {
-        $btn.removeClass('show').addClass('blocked').text(lang.resp_btn_show);
+        $btn.removeClass('show').addClass('hide').text(lang.resp_btn_show);
       }
     });
   }
@@ -172,8 +172,8 @@
       this.innerText =
         $formBtn.hasClass('show') ? lang.resp_btn_hide : lang.resp_btn_show;
       $responseBox.children('.list').children('.shadow-block')
-        .toggleClass('blocked');
-    }).addClass(['resp-hidden-show', 'button', 'small-button', 'blocked'])
+        .toggleClass('hide');
+    }).addClass(['resp-hidden-show', 'button', 'small-button', 'hide'])
       .insertAfter($responseBox.find('.response-only-owner'));
   }
 
