@@ -4,7 +4,7 @@
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
-// @version      0.3.2
+// @version      0.3.3
 // @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
 // @grant        GM_addStyle
@@ -97,12 +97,9 @@
         ' <div class="empty">' + lang.set_empty + '</div>' +
         '</div>');
       const $holder = $('<div class="item_holder"></div>').appendTo($content);
-      const usersInfo = [];
-      valueGetSet('blocklist')
-        .forEach(id => usersInfo.push(getUserInfoAsync(id)));
-      if (usersInfo.length) {
-        $content.find('.dashboard .empty').addClass('hide');
-      }
+      const usersInfo = Array.from(valueGetSet('blocklist'),
+        id => getUserInfoAsync(id));
+      if (usersInfo.length) $content.find('.dashboard .empty').addClass('hide');
       Promise.all(usersInfo).then(infomations => infomations.forEach(info => {
         makeBlockedUserItem(info, $holder);
       }));
@@ -188,9 +185,10 @@
       '<a class="user_avatar" target="_blank">' +
         '<img class="profile_pic" src="' + info.img + '"></img></a>',
       '<div class="user_info">' +
-      '  <a class="user_link" target="_blank">' + info.name + '</a>' +
-      '  <span class="nick_name">@' + info.id + '</span>' +
-      '  <div class="more_info"><br></div>' +
+        '<a class="user_link" target="_blank" style="color:#000">' + info.name +
+        '</a>' +
+        '<span class="nick_name">@' + info.id + '</span>' +
+        '<div class="more_info"><br></div>' +
       '</div>',
       '<div class="user_action"><a void="" data-id="' + info.id + '" ' +
         'class="friend_man icon_only pif-user-blocked has_block" ' +
@@ -212,24 +210,28 @@
   }
 
   function getUserInfoAsync (id) {
+    const ico = 'https://www.plurk.com/favicon.ico';
     return new Promise((resolve, reject) => {
       try {
         const xhr = new XMLHttpRequest();
         xhr.responseType = 'document';
         xhr.onload = function () {
-          const h = xhr.responseXML.head;
-          const title = h.querySelector('[property="og:title"]').content;
-          const img = h.querySelector('[property="og:image"]').content;
-          const name =
-            (title.match(/(.+) \[.+\]/) || title.match(/(.+) - Plurk/))[1];
-          resolve({ id: id, name: name, img: img });
+          const b = xhr.responseXML.body;
+          const img = b.querySelector('#profile_pic');
+          const name = b.querySelector('#full_name>.display_name');
+          const title = xhr.responseXML.title;
+          resolve({
+            id: id,
+            img: img ? img.src : ico,
+            name: name
+              ? name.innerText
+              : (title.match(/(.+) \[.+\]/) || title.match(/(.+) - Plurk/))[1]
+          });
         };
-        xhr.onerror = function () {
-          resolve({ id: id, name: id, img: null });
-        };
+        xhr.onerror = function () { resolve({ id: id, name: id, img: ico }); };
         xhr.open('GET', 'https://www.plurk.com/' + id);
         xhr.send();
-      } catch (e) { resolve({ id: id, name: id, img: null }); }
+      } catch (e) { resolve({ id: id, name: id, img: ico }); }
     });
   }
 
