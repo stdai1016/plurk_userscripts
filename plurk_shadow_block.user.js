@@ -4,7 +4,8 @@
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
-// @version      0.3.3
+// @exclude      https://www.plurk.com/_comet/*
+// @version      0.3.4
 // @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
 // @grant        GM_addStyle
@@ -98,7 +99,7 @@
         '</div>');
       const $holder = $('<div class="item_holder"></div>').appendTo($content);
       const usersInfo = Array.from(valueGetSet('blocklist'),
-        id => getUserInfoAsync(id));
+        id => getUserInfoAsync(null, id));
       if (usersInfo.length) $content.find('.dashboard .empty').addClass('hide');
       Promise.all(usersInfo).then(infomations => infomations.forEach(info => {
         makeBlockedUserItem(info, $holder);
@@ -111,7 +112,7 @@
           valueGetSet('blocklist', blocklist);
           this.parentElement.children[0].value = '';
           $content.find('.dashboard .empty').addClass('hide');
-          getUserInfoAsync(m[0])
+          getUserInfoAsync(null, m[0])
             .then(info => makeBlockedUserItem(info, $holder));
         } else { window.alert(lang.set_alert); }
       });
@@ -181,20 +182,24 @@
 
   function makeBlockedUserItem (info, holder) {
     const $u = $('<div class="user_item user_blocked_users_item"></div>');
+    info.avatar = info.avatar || '';
+    const img = info.has_profile_image
+      ? `https://avatars.plurk.com/${info.id}-medium${info.avatar}.gif`
+      : 'https://www.plurk.com/static/default_medium.jpg';
     $u.append(
       '<a class="user_avatar" target="_blank">' +
-        '<img class="profile_pic" src="' + info.img + '"></img></a>',
+        `<img class="profile_pic" src="${img}"></img></a>`,
       '<div class="user_info">' +
-        '<a class="user_link" target="_blank" style="color:#000">' + info.name +
-        '</a>' +
-        '<span class="nick_name">@' + info.id + '</span>' +
+        '<a class="user_link" target="_blank" style="color:#000">' +
+          `${info.display_name}</a>` +
+        `<span class="nick_name">@${info.nick_name}</span>` +
         '<div class="more_info"><br></div>' +
       '</div>',
-      '<div class="user_action"><a void="" data-id="' + info.id + '" ' +
+      `<div class="user_action"><a void="" data-id="${info.nick_name}" ` +
         'class="friend_man icon_only pif-user-blocked has_block" ' +
-        'title="' + lang.set_remove + '"></a></div>'
+        `title="${lang.set_remove}"></a></div>`
     );
-    $u.find('a:not(.has_block)').attr('href', '/' + info.id);
+    $u.find('a:not(.has_block)').attr('href', '/' + info.nick_name);
     $u.find('a.has_block').on('click', function () {
       const blocklist = valueGetSet('blocklist');
       for (let i = 0; i < blocklist.length; ++i) {
@@ -209,30 +214,24 @@
     $u.appendTo(holder);
   }
 
-  function getUserInfoAsync (id) {
-    const ico = 'https://www.plurk.com/favicon.ico';
-    return new Promise((resolve, reject) => {
+  async function getUserInfoAsync (id = null, nickName = null) {
+    if (!id) {
       try {
-        const xhr = new XMLHttpRequest();
-        xhr.responseType = 'document';
-        xhr.onload = function () {
-          const b = xhr.responseXML.body;
-          const img = b.querySelector('#profile_pic');
-          const name = b.querySelector('#full_name>.display_name');
-          const title = xhr.responseXML.title;
-          resolve({
-            id: id,
-            img: img ? img.src : ico,
-            name: name
-              ? name.innerText
-              : (title.match(/(.+) \[.+\]/) || title.match(/(.+) - Plurk/))[1]
-          });
-        };
-        xhr.onerror = function () { resolve({ id: id, name: id, img: ico }); };
-        xhr.open('GET', 'https://www.plurk.com/' + id);
-        xhr.send();
-      } catch (e) { resolve({ id: id, name: id, img: ico }); }
+        const resp = await fetch(`https://www.plurk.com/${nickName}`);
+        const html = await resp.text();
+        const doc = (new DOMParser()).parseFromString(html, 'text/html');
+        const h = doc.querySelector('#num_of_fans').parentElement.href;
+        id = h.match(/user_id=(\d+)$/)[1];
+      } catch (e) { id = ''; }
+    }
+    const resp = await fetch('https://www.plurk.com/Users/fetchUserInfo', {
+      credentials: 'same-origin',
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: `user_id=${id}`
     });
+    if (!resp.ok) throw Error(`Cannot get user info: ${id} (${nickName})`);
+    return resp.json();
   }
 
   function isOnBlockList (user) {
