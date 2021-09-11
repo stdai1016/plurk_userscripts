@@ -23,12 +23,12 @@
 
 在隱形黑名單中點選移除按鈕。
 
-![setting](./setting.jpg)
+![setting](./image/setting.jpg)
 
 ### 在回應中暫時顯示被隱藏的回應
 
 按下 *顯示被封鎖的回應* 即可顯示被隱藏的回應。
-![show hidden response](./response-btn.jpg)
+![show hidden response](./image/response-btn.jpg)
 
 ## 注意事項
 
