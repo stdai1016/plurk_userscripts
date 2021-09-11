@@ -15,7 +15,7 @@
 // ==UserScript==
 // @name         Plurk Custom Theme EX
 // @description  Expand Plurk custom theme
-// @version      0.2.3
+// @version      0.2.4
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @match        https://www.plurk.com/*
@@ -63,29 +63,40 @@
   const NAV_IMG_URL = /^https:\/\/avatars\.plurk\.com\/(\d+)-\w+\.\w+$/;
   const CSS_LNK_URL = /^https:\/\/.+\/getCustomCss\?user_id=(\d+)/;
   const link = document.head.querySelector('#theme-custom');
-  const meta = document.head.querySelector('meta[property="og:image"]');
-  const img = document.body.querySelector('#nav-account img');
 
-  function _g1 (m) { return m ? m[1] : null; } // return group 1 if match
-  const tid = (link ? _g1(link.href.match(CSS_LNK_URL)) : null) ||
-    _g1(meta.content.match(NAV_IMG_URL));
-  const uid = img ? _g1(img.src.match(NAV_IMG_URL)) : null;
-  console.debug(`timeline id: ${tid}, user id: ${uid}`);
+  function getPageUserId () {
+    // eslint-disable-next-line
+    if (window.GLOBAL) return window.GLOBAL.page_user.id;
+    const link = document.head.querySelector('#theme-custom');
+    const meta = document.head.querySelector('meta[property="og:image"]');
+    return link?.href.match(CSS_LNK_URL)?.[1] ||
+           meta?.content.match(NAV_IMG_URL)?.[1];
+  }
 
-  if (tid) {
-    if (tid === uid) {
+  function getUserId () {
+    // eslint-disable-next-line
+    if (window.GLOBAL) return window.GLOBAL.session_user.id;
+    const img = document.body.querySelector('#nav-account img');
+    return img?.src.match(NAV_IMG_URL)?.[1];
+  }
+
+  const pid = getPageUserId();
+  const uid = getUserId();
+  console.debug(`timeline id: ${pid}, user id: ${uid}`);
+
+  if (pid) {
+    if (pid === uid) {
       document.body.classList.add('_home_');
-      (new MutationObserver(r => r.forEach(m => updateCustomCssExFrom(tid))))
+      (new MutationObserver(r => r.forEach(m => updateCustomCssExFrom(pid))))
         .observe(link, { attributes: true, attributeFilter: ['href'] });
-    } else if (window.localStorage.getItem(`plurkCustomCssEx-${tid}`) ||
+    } else if (window.localStorage.getItem(`plurkCustomCssEx-${pid}`) ||
         window.localStorage.getItem('plurkCustomCssEx-forever')) {
-      window.localStorage.removeItem(`plurkCustomCssEx-${tid}`);
-      updateCustomCssExFrom(tid);
+      window.localStorage.removeItem(`plurkCustomCssEx-${pid}`);
+      updateCustomCssExFrom(pid);
     } else {
       function _eccefo (forever) {
         if (window.confirm('Are you sure to enable this feature?')) {
-          // eslint-disable-next-line camelcase,no-undef
-          const k = forever ? 'forever' : user_id;
+          const k = forever ? 'forever' : pid;
           window.localStorage.setItem(`plurkCustomCssEx-${k}`, 1);
           location.reload();
         }
@@ -96,7 +107,7 @@
         script.type = 'text/javascript';
         script.innerHTML = [
           _eccefo.toString(),
-          `var user_id = ${tid};`,
+          `var pid = ${pid};`,
           'Object.defineProperty(window, "ENABLE_CUSTOM_CSS_EX_FROM_OTHERS",',
           '  { get: function () { _eccefo(); } });',
           'Object.defineProperty(',
