@@ -8,6 +8,7 @@ To install the userscript, open one of following links and open raw URL by click
 
 | Userscripts | Description |
 |-------------|-------------|
+|[plurk_custom_theme_ex](./plurk_custom_theme_ex.user.js)|Expand Plurk custom theme|
 |[plurk_show_alias_name](./plurk_show_alias_name.user.js)|Shows alias name of each user under display name|
 
 ## License
