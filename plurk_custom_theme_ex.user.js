@@ -15,7 +15,7 @@
 // ==UserScript==
 // @name         Plurk Custom Theme EX
 // @description  Expand Plurk custom theme
-// @version      0.2.4
+// @version      0.2.5
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @match        https://www.plurk.com/*
@@ -66,7 +66,7 @@
 
   function getPageUserId () {
     // eslint-disable-next-line
-    if (window.GLOBAL) return window.GLOBAL.page_user.id;
+    if (window.GLOBAL?.page_user) return window.GLOBAL.page_user.id;
     const link = document.head.querySelector('#theme-custom');
     const meta = document.head.querySelector('meta[property="og:image"]');
     return link?.href.match(CSS_LNK_URL)?.[1] ||
@@ -82,7 +82,7 @@
 
   const pid = getPageUserId();
   const uid = getUserId();
-  console.debug(`timeline id: ${pid}, user id: ${uid}`);
+  console.debug(`page id: ${pid}, user id: ${uid}`);
 
   if (pid) {
     if (pid === uid) {
