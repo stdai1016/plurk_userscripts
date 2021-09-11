@@ -8,6 +8,7 @@
 
 | Userscripts | Description | Comments |
 |-------------|-------------|----------|
+|[plurk_custom_theme_ex](./plurk_custom_theme_ex.user.js)|擴展噗浪的自訂佈景功能|
 |[plurk_show_alias_name](./plurk_show_alias_name.user.js)|在每個使用者的暱稱下面顯示別名|別名功能屬於噗浪的付費服務|
 
 ## License
