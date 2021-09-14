@@ -24,28 +24,47 @@ const plurklib = (function () { // eslint-disable-line
       this._mo_tl = new MutationObserver(function (mrs) {
         const records = [];
         mrs.forEach(mr => {
-          const pr = { type: 'add', addedPlurks: [] };
+          const pr = { type: 'plurk', plurks: [] };
           mr.addedNodes.forEach(node => {
             const plurk = Plurk.analysisNode(node);
-            if (plurk) pr.addedPlurks.push(plurk);
+            if (plurk) pr.plurks.push(plurk);
           });
-          if (pr.addedPlurks.length) records.push(pr);
+          if (pr.plurks.length) records.push(pr);
+        });
+        callback(records);
+      });
+      this._mo_resp = new MutationObserver(function (mrs) {
+        const records = [];
+        mrs.forEach(mr => {
+          const pr = { type: 'plurk', plurk: [] };
+          mr.addedNodes.forEach(node => {
+            const plurk = Plurk.analysisNode(node);
+            if (plurk) pr.plurks.push(plurk);
+          });
+          if (pr.plurks.length) records.push(pr);
         });
         callback(records);
       });
     }
 
-    observe (options = { add: false }) {
-      if (options?.add) {
+    observe (options = { plurk: false }) {
+      if (options?.plurk) {
         this._observe = true;
-        getElementAsync('#timeline_cnt block_cnt')
+        getElementAsync('#timeline_cnt .block_cnt') // timeline
           .then(tl => this._mo_tl.observe(tl, { childList: true }));
+        getElementAsync('#cbox_response .list') // pop window
+          .then(list => this._mo_resp.observe(list, { childList: true }));
+        getElementAsync('#form_holder .list') // responses in timeline
+          .then(list => this._mo_resp.observe(list, { childList: true }));
+        getElementAsync('#plurk_responses .list') // responses in article
+          .then(list => this._mo_resp.observe(list, { childList: true }));
       }
       if (!this._observe) throw Error();
     }
 
     disconnect () {
       this._mo_tl.disconnect();
+      this._mo_resp.disconnect();
     }
   }
 
@@ -201,7 +220,8 @@ const plurklib = (function () { // eslint-disable-line
    *  @returns {object}
    */
   function getPageUserData () {
-    if (window.GLOBAL) return window.GLOBAL.page_user; // eslint-disable-line
+    // eslint-disable-next-line
+    if (window.GLOBAL?.page_user) return window.GLOBAL.page_user;
     return null;
   }
 
