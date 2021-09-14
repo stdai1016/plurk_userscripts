@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Plurk Lib
 // @description  A library for Plurk
-// @version      0.1.0c
+// @version      0.1.0d
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @include      https://www.plurk.com/*
@@ -15,6 +15,13 @@ const plurklib = (function () { // eslint-disable-line
   'use strict';
   /* class */
 
+  class PlurkRecord {
+    constructor (type = null) {
+      this.type = type;
+      this.plurks = [];
+    }
+  }
+
   class PlurkObserver {
     /**
      *  @param {Function} callback
@@ -24,7 +31,7 @@ const plurklib = (function () { // eslint-disable-line
       this._mo_tl = new MutationObserver(function (mrs) {
         const records = [];
         mrs.forEach(mr => {
-          const pr = { type: 'plurk', plurks: [] };
+          const pr = new PlurkRecord('plurk');
           mr.addedNodes.forEach(node => {
             const plurk = Plurk.analysisNode(node);
             if (plurk) pr.plurks.push(plurk);
@@ -36,7 +43,7 @@ const plurklib = (function () { // eslint-disable-line
       this._mo_resp = new MutationObserver(function (mrs) {
         const records = [];
         mrs.forEach(mr => {
-          const pr = { type: 'plurk', plurk: [] };
+          const pr = new PlurkRecord('plurk');
           mr.addedNodes.forEach(node => {
             const plurk = Plurk.analysisNode(node);
             if (plurk) pr.plurks.push(plurk);
@@ -304,6 +311,7 @@ const plurklib = (function () { // eslint-disable-line
 
   return {
     Plurk: Plurk,
+    PlurkRecord: PlurkRecord,
     PlurkObserver: PlurkObserver,
     getUserData: getUserData,
     getPageUserData: getPageUserData,
