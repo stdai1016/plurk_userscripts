@@ -50,13 +50,13 @@ const plurklib = (function () { // eslint-disable-line
     observe (options = { plurk: false }) {
       if (options?.plurk) {
         this._observe = true;
-        getElementAsync('#timeline_cnt .block_cnt') // timeline
+        getElementAsync('#timeline_cnt .block_cnt', document) // timeline
           .then(tl => this._mo_tl.observe(tl, { childList: true }));
-        getElementAsync('#cbox_response .list') // pop window
+        getElementAsync('#cbox_response .list', document) // pop window
           .then(list => this._mo_resp.observe(list, { childList: true }));
-        getElementAsync('#form_holder .list') // responses in timeline
+        getElementAsync('#form_holder .list', document) // resp in timeline
           .then(list => this._mo_resp.observe(list, { childList: true }));
-        getElementAsync('#plurk_responses .list') // responses in article
+        getElementAsync('#plurk_responses .list', document) // resp in article
           .then(list => this._mo_resp.observe(list, { childList: true }));
       }
       if (!this._observe) throw Error();
