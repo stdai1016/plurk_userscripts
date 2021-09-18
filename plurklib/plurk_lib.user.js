@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Plurk Lib
 // @description  A library for Plurk
-// @version      0.1.1a
+// @version      0.1.1b
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @include      https://www.plurk.com/*
@@ -229,24 +229,28 @@ const plurklib = (function () { // eslint-disable-line
     };
   }
 
-  /**
-   *  @returns {object}
-   */
-  function getUserData () {
+  const _GLOBAL = (function () {
+    function cp (o) {
+      const n = {};
+      for (const k in o) {
+        if (o[k] instanceof Date) n[k] = new Date(o[k]);
+        else if (typeof o[k] !== 'object') n[k] = o[k];
+        else n[k] = cp(o[k]);
+      }
+      return n;
+    }
     if (typeof unsafeWindow === 'undefined') {
-      // eslint-disable-next-line
-      if (window.GLOBAL?.session_user) return window.GLOBAL.session_user;
+      if (window.GLOBAL) return cp(window.GLOBAL);// eslint-disable-line
     // eslint-disable-next-line
-    } else if (unsafeWindow.GLOBAL) return unsafeWindow.GLOBAL.session_user;
-    let user = null;
+    } else if (unsafeWindow.GLOBAL) return cp(unsafeWindow.GLOBAL);
     for (const scr of document.querySelectorAll('script')) {
       try {
         const text = scr.textContent
           .replace(/new Date\("([\w ,:]+)"\)/g, '"new Date(\\"$1\\")"');
         const i = text.indexOf('var GLOBAL = {');
-        const g = (function d (o) {
+        return (function dd (o) {
           for (const k in o) {
-            if (typeof o[k] === 'object') d(o[k]);
+            if (typeof o[k] === 'object') dd(o[k]);
             else if (typeof o[k] === 'string' && o[k].startsWith('new Date')) {
               const m = o[k].match(/new Date\("([\w ,:]+)"\)/);
               o[k] = m ? new Date(m[1]) : null;
@@ -254,43 +258,19 @@ const plurklib = (function () { // eslint-disable-line
           }
           return o;
         })(JSON.parse(text.substring(i + 13, text.indexOf('\n', i))));
-        if (g.session_user) user = g.session_user;
       } catch {}
     }
-    return user;
-  }
+  })();
 
   /**
    *  @returns {object}
    */
-  function getPageUserData () {
-    if (typeof unsafeWindow === 'undefined') {
-      // eslint-disable-next-line
-      if (window.GLOBAL?.page_user) return window.GLOBAL.page_user;
-    } else if (unsafeWindow.GLOBAL?.page_user) { // eslint-disable-line
-      return unsafeWindow.GLOBAL.page_user; // eslint-disable-line
-    }
-    let user = null;
-    for (const scr of document.querySelectorAll('script')) {
-      try {
-        const text = scr.textContent
-          .replace(/new Date\("([\w ,:]+)"\)/g, '"new Date(\\"$1\\")"');
-        const i = text.indexOf('var GLOBAL = {');
-        const g = (function d (o) {
-          for (const k in o) {
-            if (typeof o[k] === 'object') d(o[k]);
-            else if (typeof o[k] === 'string' && o[k].startsWith('new Date')) {
-              const m = o[k].match(/new Date\("([\w ,:]+)"\)/);
-              o[k] = m ? new Date(m[1]) : null;
-            }
-          }
-          return o;
-        })(JSON.parse(text.substring(i + 13, text.indexOf('\n', i))));
-        if (g.session_user) user = g.session_user;
-      } catch {}
-    }
-    return user;
-  }
+  function getUserData () { return _GLOBAL?.session_user; }
+
+  /**
+   *  @returns {object}
+   */
+  function getPageUserData () { return _GLOBAL?.page_user; }
 
   /* ## API */
   /**
