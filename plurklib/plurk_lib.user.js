@@ -1,12 +1,11 @@
 // ==UserScript==
 // @name         Plurk Lib
 // @description  A library for Plurk
-// @version      0.1.0d
+// @version      0.1.1a
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @include      https://www.plurk.com/*
-// @exclude      https://www.plurk.com/_comet/*
-// @exclude      https://www.plurk.com/Premium/*
+// @exclude      https://www.plurk.com/_*
 // ==/UserScript==
 
 /* jshint esversion: 6 */
@@ -33,7 +32,7 @@ const plurklib = (function () { // eslint-disable-line
         mrs.forEach(mr => {
           const pr = new PlurkRecord('plurk');
           mr.addedNodes.forEach(node => {
-            const plurk = Plurk.analysisNode(node);
+            const plurk = Plurk.analysisElement(node);
             if (plurk) pr.plurks.push(plurk);
           });
           if (pr.plurks.length) records.push(pr);
@@ -45,7 +44,7 @@ const plurklib = (function () { // eslint-disable-line
         mrs.forEach(mr => {
           const pr = new PlurkRecord('plurk');
           mr.addedNodes.forEach(node => {
-            const plurk = Plurk.analysisNode(node);
+            const plurk = Plurk.analysisElement(node);
             if (plurk) pr.plurks.push(plurk);
           });
           if (pr.plurks.length) records.push(pr);
@@ -58,13 +57,16 @@ const plurklib = (function () { // eslint-disable-line
       if (options?.plurk) {
         this._observe = true;
         getElementAsync('#timeline_cnt .block_cnt', document) // timeline
-          .then(tl => this._mo_tl.observe(tl, { childList: true }));
+          .then(tl => this._mo_tl.observe(tl, { childList: true }), e => {});
         getElementAsync('#cbox_response .list', document) // pop window
           .then(list => this._mo_resp.observe(list, { childList: true }));
         getElementAsync('#form_holder .list', document) // resp in timeline
           .then(list => this._mo_resp.observe(list, { childList: true }));
-        getElementAsync('#plurk_responses .list', document) // resp in article
-          .then(list => this._mo_resp.observe(list, { childList: true }));
+        // resp in article
+        getElementAsync('#plurk_responses .list', document).then(
+          list => this._mo_resp.observe(list, { childList: true }),
+          e => {}
+        );
       }
       if (!this._observe) throw Error();
     }
@@ -79,8 +81,9 @@ const plurklib = (function () { // eslint-disable-line
     /**
      * @param {object} pdata
      */
-    constructor (pdata) {
+    constructor (pdata, target) {
       Plurk.ATTRIBUTES.forEach(a => { this[a] = pdata[a]; });
+      this.target = target;
     }
 
     get isMute () { return this.is_unread === 2; }
@@ -95,47 +98,52 @@ const plurklib = (function () { // eslint-disable-line
      *  @param {HTMLElement} node
      *  @returns {Plurk}
      */
-    static analysisNode (node) {
+    static analysisElement (node) {
       if (!node.classList.contains('plurk')) return null;
-      return new Plurk(analysisNode(node));
+      return new Plurk(analysisElement(node), node);
     }
   }
 
+  /* eslint-disable no-multi-spaces */
+  /** attributes for plurk | response */
   Plurk.ATTRIBUTES = [
-    'owner_id',
-    'plurk_id',
-    'user_id',
-    'posted',
-    'replurker_id',
-    'id',
-    'qualifier',
-    'content',
+    'owner_id',         // posted by
+    'plurk_id',         // the plurk | the plurk that the response belongs to
+    'user_id',          // which timeline does this Plurk belong to | unused
+    'replurker_id',     // replurked by | unused
+    'id',               // plurk id | response id
+    'qualifier',        // qualifier
+    'content',          // HTMLElement if exist
     // 'content_raw',
     // 'lang',
-    'response_count',
-    // 'responses_seen',
+    'posted',           // the date this plurk was posted
+    'last_edited',      // the last date this plurk was edited
+
+    'plurk_type',       // 0: public, 1: private, 4: anonymous | unused
     // 'limited_to',
     // 'excluded',
-    // 'no_comments',
-    'plurk_type',
-    'is_unread',
-    'last_edited',
-    'porn',
     // 'publish_to_followers',
-    // 'coins',
-    // 'has_gift',
-    'replurked',
-    // 'replurkers',
-    'replurkers_count',
-    'replurkable',
-    // 'favorers',
-    'favorite_count',
-    'anonymous',
-    // 'responded',
-    'favorite'
+    // 'no_comments',
+    'porn',             // has 'porn' tag | unused
+    'anonymous',        // is anonymous
+
+    'is_unread',        // 0: read, 1: unread, 2: muted  | unused
+    // 'has_gift',      // current user sent a gift?
+    'coins',            // number of users sent gift
+    'favorite',         // favorited by current user
+    'favorite_count',   // number of users favorite it
+    // 'favorers',      // favorers
+    'replurked',        // replurked by current user
+    'replurkers_count', // number of users replurked it
+    // 'replurkers',    // replurkers
+    'replurkable',      // replurkable
+    // 'responded',     // responded by current user
+    'response_count'    // number of responses | unused
+    // 'responses_seen',
     // 'bookmark',
-    // 'mentioned'
+    // 'mentioned'      // current user is mentioned
   ];
+  /* eslist-enable */
 
   function getElementAsync (selectors, target, timeout = 100) {
     return new Promise((resolve, reject) => {
@@ -158,28 +166,33 @@ const plurklib = (function () { // eslint-disable-line
    *  @param {HTMLElement} node
    *  @returns {object}
    */
-  function analysisNode (node) {
+  function analysisElement (node) {
     const user = node.querySelector('.td_qual a.name') ||
                  node.querySelector('.user a.name');
     const posted = node.querySelector('.posted');
     const isResponse = node.classList.contains('response');
     const isReplurk = !isResponse && user.dataset.uid !== node.dataset.uid;
     return {
-      target: node,
-      owner_id: parseInt(node.dataset.uid),
+      owner_id: parseInt(node.dataset.uid || user.dataset.uid),
       plurk_id: parseInt(node.dataset.pid),
-      user_id: getPageUserData().id,
-      posted: (new Date(posted.dataset.posted)).toUTCString(),
+      user_id: getPageUserData()?.id || parseInt(user.dataset.uid),
+      posted: posted ? new Date(posted.dataset.posted) : null,
       replurker_id: isReplurk ? parseInt(user.dataset.uid) : null,
-      id: parseInt(node.id.substr(1)),
+      id: parseInt(node.id.substr(1) || node.dataset.rid || node.dataset.pid),
       qualifier: (function () {
+        const qualifier = node.querySelector('.text_holder .qualifier') ||
+                          node.querySelector('.qualifier');
+        for (const c of qualifier?.classList || []) {
+          if (!c.startsWith('q_') || c === 'q_replurks') continue;
+          return c.substr(2);
+        }
         return ':';
       })(),
       content: node.querySelector('.text_holder .text_holder') ||
                node.querySelector('.text_holder'),
       // content_raw,
       // lang,
-      response_count: parseInt(node.querySelector('.response_count')),
+      response_count: parseInt(node.dataset.respcount) || 0,
       // responses_seen,
       // limited_to,
       // excluded,
@@ -194,19 +207,20 @@ const plurklib = (function () { // eslint-disable-line
         if (node.classList.contains('new')) return 1;
         return 0;
       })(),
-      last_edited: posted.dataset.edited
-        ? (new Date(posted.dataset.edited)).toUTCString()
+      last_edited: posted?.dataset.edited
+        ? new Date(posted.dataset.edited)
         : null,
       porn: node.classList.contains('porn'),
       // publish_to_followers,
-      // coins,
+      coins: parseInt(node.querySelector('a.gift')?.innerText) || 0,
       // has_gift,
       replurked: node.classList.contains('replurk'),
       // replurkers,
-      replurkers_count: parseInt(node.querySelector('a.replurk')?.innerText || 0),
+      replurkers_count:
+        parseInt(node.querySelector('a.replurk')?.innerText) || 0,
       replurkable: node.querySelector('a.replurk') !== null,
       // favorers,
-      favorite_count: parseInt(node.querySelector('a.like')?.innerText || 0),
+      favorite_count: parseInt(node.querySelector('a.like')?.innerText) || 0,
       anonymous: node.dataset.uid === '99999',
       // responded,
       favorite: node.classList.contains('favorite')
@@ -219,17 +233,63 @@ const plurklib = (function () { // eslint-disable-line
    *  @returns {object}
    */
   function getUserData () {
-    if (window.GLOBAL) return window.GLOBAL.session_user; // eslint-disable-line
-    return null;
+    if (typeof unsafeWindow === 'undefined') {
+      // eslint-disable-next-line
+      if (window.GLOBAL?.session_user) return window.GLOBAL.session_user;
+    // eslint-disable-next-line
+    } else if (unsafeWindow.GLOBAL) return unsafeWindow.GLOBAL.session_user;
+    let user = null;
+    for (const scr of document.querySelectorAll('script')) {
+      try {
+        const text = scr.textContent
+          .replace(/new Date\("([\w ,:]+)"\)/g, '"new Date(\\"$1\\")"');
+        const i = text.indexOf('var GLOBAL = {');
+        const g = (function d (o) {
+          for (const k in o) {
+            if (typeof o[k] === 'object') d(o[k]);
+            else if (typeof o[k] === 'string' && o[k].startsWith('new Date')) {
+              const m = o[k].match(/new Date\("([\w ,:]+)"\)/);
+              o[k] = m ? new Date(m[1]) : null;
+            }
+          }
+          return o;
+        })(JSON.parse(text.substring(i + 13, text.indexOf('\n', i))));
+        if (g.session_user) user = g.session_user;
+      } catch {}
+    }
+    return user;
   }
 
   /**
    *  @returns {object}
    */
   function getPageUserData () {
-    // eslint-disable-next-line
-    if (window.GLOBAL?.page_user) return window.GLOBAL.page_user;
-    return null;
+    if (typeof unsafeWindow === 'undefined') {
+      // eslint-disable-next-line
+      if (window.GLOBAL?.page_user) return window.GLOBAL.page_user;
+    } else if (unsafeWindow.GLOBAL?.page_user) { // eslint-disable-line
+      return unsafeWindow.GLOBAL.page_user; // eslint-disable-line
+    }
+    let user = null;
+    for (const scr of document.querySelectorAll('script')) {
+      try {
+        const text = scr.textContent
+          .replace(/new Date\("([\w ,:]+)"\)/g, '"new Date(\\"$1\\")"');
+        const i = text.indexOf('var GLOBAL = {');
+        const g = (function d (o) {
+          for (const k in o) {
+            if (typeof o[k] === 'object') d(o[k]);
+            else if (typeof o[k] === 'string' && o[k].startsWith('new Date')) {
+              const m = o[k].match(/new Date\("([\w ,:]+)"\)/);
+              o[k] = m ? new Date(m[1]) : null;
+            }
+          }
+          return o;
+        })(JSON.parse(text.substring(i + 13, text.indexOf('\n', i))));
+        if (g.session_user) user = g.session_user;
+      } catch {}
+    }
+    return user;
   }
 
   /* ## API */
