@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Plurk Lib
 // @description  A library for Plurk
-// @version      0.1.1b
+// @version      0.1.1c
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @include      https://www.plurk.com/*
@@ -43,7 +43,7 @@ const plurklib = (function () { // eslint-disable-line
       this._mo_resp = new MutationObserver(function (mrs) {
         const records = [];
         mrs.forEach(mr => {
-          const pr = new PlurkRecord('plurk');
+          const pr = new PlurkRecord(mr.target, 'plurk');
           mr.addedNodes.forEach(node => {
             const plurk = Plurk.analysisElement(node);
             if (plurk) pr.plurks.push(plurk);
