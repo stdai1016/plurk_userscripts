@@ -89,7 +89,7 @@ const plurklib = (function () { // eslint-disable-line
 
     get isMute () { return this.is_unread === 2; }
 
-    get isResponse () { return this.id === this.plurk_id; }
+    get isResponse () { return this.id !== this.plurk_id; }
 
     get isReplurk () {
       return !this.isResponse && this.user_id !== this.owner_id;
