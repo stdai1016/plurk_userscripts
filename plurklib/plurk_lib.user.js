@@ -15,7 +15,8 @@ const plurklib = (function () { // eslint-disable-line
   /* class */
 
   class PlurkRecord {
-    constructor (type = null) {
+    constructor (target, type = null) {
+      this.target = target;
       this.type = type;
       this.plurks = [];
     }
@@ -30,7 +31,7 @@ const plurklib = (function () { // eslint-disable-line
       this._mo_tl = new MutationObserver(function (mrs) {
         const records = [];
         mrs.forEach(mr => {
-          const pr = new PlurkRecord('plurk');
+          const pr = new PlurkRecord(mr.target, 'plurk');
           mr.addedNodes.forEach(node => {
             const plurk = Plurk.analysisElement(node);
             if (plurk) pr.plurks.push(plurk);
