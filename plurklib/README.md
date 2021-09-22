@@ -1,4 +1,4 @@
-# Plurklib
+# plurk_lib
 
 An unofficial library for [Plurk](https://www.plurk.com).
 
@@ -27,4 +27,4 @@ An unofficial library for [Plurk](https://www.plurk.com).
 
 ## License
 
-Plurk Lib is licensed under [MIT](https://raw.githubusercontent.com/stdai1016/plurk_userscripts/greasyfork/LICENSE).
+plurk_lib is licensed under [MIT](https://raw.githubusercontent.com/stdai1016/plurk_userscripts/greasyfork/LICENSE).

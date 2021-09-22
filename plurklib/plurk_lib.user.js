@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Plurk Lib
+// @name         plurk_lib
 // @description  An unofficial library for Plurk
 // @version      0.1.1
 // @license      MIT
