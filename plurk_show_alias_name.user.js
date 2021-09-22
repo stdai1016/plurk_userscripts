@@ -3,13 +3,14 @@
 // @name:zh-TW   噗浪暱稱顯示工具
 // @description  Show alias name of each user under display name (alias naming is a paid service of plurk).
 // @description:zh-TW 在每個使用者的暱稱下面顯示別名（別名功能屬於噗浪的付費服務）
+// @version      0.1.1
+// @license      MIT
+// @namespace    https://github.com/stdai1016
 // @match        https://www.plurk.com/*
 // @exclude      https://www.plurk.com/_comet/*
 // @exclude      https://www.plurk.com/settings/*
 // @exclude      https://www.plurk.com/Friends/*
 // @exclude      https://www.plurk.com/API*
-// @version      0.1.1
-// @license      MIT
 // @grant        none
 // ==/UserScript==
 
