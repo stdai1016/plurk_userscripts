@@ -3,12 +3,13 @@
 // @name:zh-TW   噗浪隱形黑名單
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
+// @version      0.4.0d
+// @license      MIT
+// @namespace    https://github.com/stdai1016
 // @match        https://www.plurk.com/*
 // @exclude      https://www.plurk.com/_*
-// @version      0.4.0c
-// @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
-// @require      https://github.com/stdai1016/plurk_userscripts/raw/plurklib/plurklib/plurk_lib.user.js
+// @require      https://github.com/stdai1016/plurk_userscripts/raw/main/plurklib/plurk_lib.user.js
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -59,34 +60,61 @@
   /* ======= storage ======= */
   /** Struct in GM storage:
    *  {
-   *    "u${userId}": {
-   *      "replurk": <bool>, // block replurks from blocked users
-   *      "response": <bool>, // block responses from blocked users
-   *      "blocked_users": [
-   *        {
-   *          id: <number>, // user id
-   *          nick_name: <string>, // for readability
-   *          date: <UTC_datetime_string>
-   *        }
-   *      ]
+   *    `u${currUserId}`: {
+   *      `b${blockedUserId}`: {
+   *        id: blockedUserId,
+   *        nick_name: <string>, // for readability
+   *        replurk: <bool>,  // block his replurks
+   *        response: <bool>, // block his responses
+   *        date: <UTC_datetime_string>
+   *      }
    *    }
    *  }
    */
-  const DEFAULT_VALUE = {
-    replurk: true,
-    response: true,
-    blocked_users: []
-  };
-  function valueGetSet (key, val = null) {
-    if (val != null) GM_setValue(key, val);
-    return GM_getValue(key);
+  function valueGetSet (val = null) {
+    if (val != null) GM_setValue(`u${currUserId}`, val);
+    return GM_getValue(`u${currUserId}`);
   }
 
-  const USER_ID = `u${currUserId}`;
-  let conf = valueGetSet(USER_ID);
-  if (typeof conf !== 'object' || conf === null) {
-    conf = valueGetSet(USER_ID, DEFAULT_VALUE);
-  }
+  let _blockedUsers = valueGetSet();
+  if (typeof _blockedUsers !== 'object') _blockedUsers = valueGetSet({});
+  const blockedList = {
+    get: id => _blockedUsers[`b${id}`],
+    add: user => {
+      _blockedUsers[`b${user.id}`] = {
+        id: user.id,
+        nick_name: user.nick_name,
+        replurk: true,
+        response: true,
+        date: (new Date()).toUTCString()
+      };
+      valueGetSet(_blockedUsers);
+    },
+    remove: id => {
+      delete _blockedUsers[`b${id}`];
+      valueGetSet(_blockedUsers);
+    },
+    contains: user => {
+      switch (typeof user) {
+        case 'string':
+          for (const u in _blockedUsers) {
+            if (_blockedUsers[u].nick_name === user) return true;
+          }
+          break;
+        case 'number':
+          return !!_blockedUsers[`b${user}`];
+        case 'object':
+          return !!_blockedUsers[`b${user?.id}`];
+      }
+      return false;
+    },
+    forEach: callbackfn => {
+      for (const i in _blockedUsers) {
+        callbackfn(_blockedUsers[i], i, _blockedUsers);
+      }
+    },
+    get length () { return _blockedUsers.length; }
+  };
 
   /* ============== */
   GM_addStyle(
@@ -94,6 +122,8 @@
     '.resp-hidden-show {background:#f5f5f9;color:#afb8cc;' +
     '  font-weight:normal;vertical-align:top;transform:scale(0.9);opacity:0;}' +
     '.resp-hidden-show.show {opacity:1}' +
+    '.resp-hidden-show:not(.show) .onshow {display:none}' +
+    '.resp-hidden-show.show .onhide {display:none}' +
     '.response-status:hover .resp-hidden-show {opacity:1}' +
     '.resp-hidden-show:hover {background:#afb8cc;color:#fff}'
   );
@@ -112,10 +142,10 @@
         ' <div class="empty">' + lang.set_empty + '</div>' +
         '</div>');
       const $holder = $('<div class="item_holder"></div>').appendTo($content);
-      if (conf.blocked_users.length) {
+      if (blockedList.length) {
         $content.find('.dashboard .empty').addClass('hide');
       }
-      conf.blocked_users.forEach(u => {
+      blockedList.forEach(u => {
         plurklib.fetchUserInfo(u.id).then(info => {
           makeBlockedUserItem(info, $holder);
         }).catch(e => {
@@ -130,12 +160,7 @@
           $content.find('.dashboard .empty').addClass('hide');
           plurklib.fetchUserInfo(m[0]).then(info => {
             makeBlockedUserItem(info, $holder);
-            conf.blocked_users.push({
-              id: info.id,
-              nick_name: info.nick_name,
-              date: (new Date()).toUTCString()
-            });
-            valueGetSet(USER_ID, conf);
+            blockedList.add(info);
           }).catch(e => {
             window.alert(`Unknown user "${m[0]}"`);
           });
@@ -143,18 +168,29 @@
       });
     }).appendTo('#pop-window-tabs>ul');
   } else if (pageUserId === currUserId ||
-    window.location.pathname.match(/^\/p\/[0-9a-z]$/)) {
+    window.location.pathname.match(/^\/p\/[0-9a-z]+$/)) {
     makeButton($('#plurk_responses>.response_box'));
     makeButton($('#form_holder>.response_box'));
     makeButton($('#cbox_response>.response_box'));
     const po = new plurklib.PlurkObserver(prs => prs.forEach(pr => {
       pr.plurks.forEach(plurk => {
-        if (isOnBlockList(plurk.owner_id)) {
-          plurk.target.classList.add('shadow-block', 'hide');
+        if (blockedList.contains(plurk.owner_id)) {
           if (plurk.isResponse) {
-            pr.target.parentElement.querySelector('.resp-hidden-show')
-              ?.classList.remove('hide');
+            plurk.target.classList.add('shadow-block');
+            const btn =
+              pr.target.parentElement.querySelector('.resp-hidden-show');
+            btn?.classList.remove('hide');
+            if (blockedList.get(plurk.owner_id).response) {
+              plurk.target.classList.add('hide');
+              console.debug(`block #m${plurk.id}`);
+            } else { btn?.classList.add('show'); }
+          } else {
+            plurk.target.classList.add('shadow-block', 'hide');
+            console.debug(`block #p${plurk.id}`);
           }
+        } else if (blockedList.get(plurk.replurker_id)?.replurk) {
+          plurk.target.classList.add('shadow-block', 'hide');
+          console.debug(`block #p${plurk.id}`);
         }
       });
     }));
@@ -163,11 +199,12 @@
 
   function makeButton ($responseBox) {
     if (!$responseBox.length) return;
-    const $formBtn = $('<div>' + lang.resp_btn_show + '</div>');
+    const $formBtn = $(
+      '<div><span class="onshow">' + lang.resp_btn_hide + '</span>' +
+      '<span class="onhide">' + lang.resp_btn_show + '</span></div>'
+    );
     $formBtn.on('click', function () {
       $formBtn.toggleClass('show');
-      this.innerText =
-        $formBtn.hasClass('show') ? lang.resp_btn_hide : lang.resp_btn_show;
       const $blocks = $responseBox.children('.list').children('.shadow-block');
       if ($formBtn.hasClass('show')) $blocks.removeClass('hide');
       else $blocks.addClass('hide');
@@ -206,27 +243,9 @@
     );
     $u.find('a:not(.has_block)').attr('href', '/' + info.nick_name);
     $u.find('a.has_block').on('click', function () {
-      for (let i = 0; i < conf.blocked_users.length; ++i) {
-        if (conf.blocked_users[i].id === parseInt(this.dataset.uid)) {
-          conf.blocked_users.splice(i, 1);
-          valueGetSet(USER_ID, conf);
-          $u.remove();
-          break;
-        }
-      }
+      blockedList.remove(this.dataset.uid);
+      $u.remove();
     });
     $u.appendTo(holder);
-  }
-
-  function isOnBlockList (user) {
-    switch (typeof user) {
-      case 'string':
-        return conf.blocked_users.map(u => u.nick_name).includes(user);
-      case 'number':
-        return conf.blocked_users.map(u => u.id).includes(user);
-      case 'object':
-        return conf.blocked_users.map(u => u.id).includes(user?.id);
-    }
-    return false;
   }
 })();
