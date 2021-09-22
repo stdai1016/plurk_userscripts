@@ -5,7 +5,7 @@
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
 // @exclude      https://www.plurk.com/_*
-// @version      0.4.0b
+// @version      0.4.0c
 // @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
 // @require      https://github.com/stdai1016/plurk_userscripts/raw/plurklib/plurklib/plurk_lib.user.js
@@ -112,12 +112,17 @@
         ' <div class="empty">' + lang.set_empty + '</div>' +
         '</div>');
       const $holder = $('<div class="item_holder"></div>').appendTo($content);
-      const usersInfo =
-        conf.blocked_users.map(u => plurklib.fetchUserInfo(u.id));
-      if (usersInfo.length) $content.find('.dashboard .empty').addClass('hide');
-      Promise.all(usersInfo).then(infomations => infomations.forEach(info => {
-        makeBlockedUserItem(info, $holder);
-      }));
+      if (conf.blocked_users.length) {
+        $content.find('.dashboard .empty').addClass('hide');
+      }
+      conf.blocked_users.forEach(u => {
+        plurklib.fetchUserInfo(u.id).then(info => {
+          makeBlockedUserItem(info, $holder);
+        }).catch(e => {
+          console.info(`Cannot get info of "${u.nick_name}" (${e.message})`);
+          makeBlockedUserItem(u, $holder);
+        });
+      });
       $content.find('.search_box>button').on('click', function () {
         const m = this.parentElement.children[0].value.match(/^[A-Za-z]\w+$/);
         if (m) {
@@ -131,6 +136,8 @@
               date: (new Date()).toUTCString()
             });
             valueGetSet(USER_ID, conf);
+          }).catch(e => {
+            window.alert(`Unknown user "${m[0]}"`);
           });
         } else { window.alert(lang.set_alert); }
       });
