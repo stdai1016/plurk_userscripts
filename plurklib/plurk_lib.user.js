@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Plurk Lib
 // @description  A library for Plurk
-// @version      0.1.1c
+// @version      0.1.1
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @include      https://www.plurk.com/*
@@ -293,7 +293,10 @@ const plurklib = (function () { // eslint-disable-line
     }
     path = path.startsWith('/') ? path : '/' + path;
     const resp = await fetch(`https://www.plurk.com${path}`, init);
-    return resp.ok ? resp.json() : {};
+    if (!resp.ok) {
+      throw Error(`${resp.status} ${resp.statusText}: ${await resp.text()}`);
+    }
+    return resp.json();
   }
 
   /* ### Notifications */
