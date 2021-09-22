@@ -9,7 +9,7 @@
 // @match        https://www.plurk.com/*
 // @exclude      https://www.plurk.com/_*
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
-// @require      https://github.com/stdai1016/plurk_userscripts/raw/main/plurklib/plurk_lib.user.js
+// @require      https://greasyfork.org/scripts/432792-plurk-lib/code/plurk_lib.js?version=972862
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
