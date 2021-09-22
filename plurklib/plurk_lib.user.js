@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Plurk Lib
-// @description  A library for Plurk
+// @description  An unofficial library for Plurk
 // @version      0.1.1
 // @license      MIT
 // @namespace    https://github.com/stdai1016
