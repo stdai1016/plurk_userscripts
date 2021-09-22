@@ -4,10 +4,11 @@
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
-// @exclude      https://www.plurk.com/_comet/*
-// @version      0.3.4
+// @exclude      https://www.plurk.com/_*
+// @version      0.4.0a
 // @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
+// @require      https://github.com/stdai1016/plurk_userscripts/raw/plurklib/plurklib/plurk_lib.user.js
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -15,7 +16,7 @@
 // ==/UserScript==
 
 /* jshint esversion: 6 */
-/* global $ */
+/* global $, plurklib */
 
 (function () {
   'use strict';
@@ -75,16 +76,13 @@
     '.resp-hidden-show:hover {background:#afb8cc;color:#fff}'
   );
 
-  if (window.location.pathname.match(/^\/p\/[A-Za-z]\w+$/)) {
-    // responses
-    const respMo = new MutationObserver(responseMutationHandler);
-    respMo.observe($('#plurk_responses .list')[0], { childList: true });
-    makeButton($('#plurk_responses>.response_box'));
-    // pop window
-    const cboxMo = new MutationObserver(responseMutationHandler);
-    cboxMo.observe($('#cbox_response .list')[0], { childList: true });
-    makeButton($('#cbox_response>.response_box'));
-  } else if (window.location.pathname === '/Friends/') {
+  if (typeof plurklib === 'undefined') {
+    console.error('plurklib load failed!');
+    return;
+  }
+  const pageUserId = plurklib.getPageUserData()?.id;
+  const currUserId = plurklib.getUserData()?.id;
+  if (window.location.pathname === '/Friends/') {
     $('<li><a void="">' + lang.set_tab + '</a></li>').on('click', function () {
       window.history.pushState('', document.title, '/Friends/');
       $('#pop-window-tabs>ul>li').removeClass('current');
@@ -117,67 +115,48 @@
         } else { window.alert(lang.set_alert); }
       });
     }).appendTo('#pop-window-tabs>ul');
-  } else if ($('#nav-account>span').text() ===
-      window.location.pathname.substr(1)) {
-    // timeline
-    const cntMo = new MutationObserver(responseMutationTimeline);
-    cntMo.observe($('div.block_cnt')[0], { childList: true });
-    const formMo = new MutationObserver(responseMutationHandler);
-    formMo.observe($('#form_holder .list')[0], { childList: true });
+  } else if (pageUserId === currUserId ||
+    window.location.pathname.match(/^\/p\/[A-Za-z]\w+$/)) {
+    makeButton($('#plurk_responses>.response_box'));
     makeButton($('#form_holder>.response_box'));
-    // pop window
-    const cboxMo = new MutationObserver(responseMutationHandler);
-    cboxMo.observe($('#cbox_response .list')[0], { childList: true });
     makeButton($('#cbox_response>.response_box'));
-  }
-
-  function responseMutationTimeline (records) {
-    records.forEach(mu => {
-      mu.addedNodes.forEach(node => {
-        const up = $(node).find('.td_img>.p_img a')[0].href.split('/').pop();
-        const u0 = $(node).find('.td_qual a.name')[0].href.split('/').pop();
-        if (isOnBlockList(up) || isOnBlockList(u0)) {
-          node.classList.add('shadow-block', 'hide');
-        }
-      });
-    });
-  }
-
-  function responseMutationHandler (records) {
-    records.forEach(mu => {
-      const $btn = $(mu.target).parent().find('.resp-hidden-show');
-      if (!mu.target.querySelector('.handle-remove')) {
-        $('<div class="handle-remove hide"></div>').prependTo(mu.target);
-      }
-      mu.removedNodes.forEach(node => {
-        if (node.classList.contains('handle-remove')) {
-          $btn.removeClass('show').addClass('hide').text(lang.resp_btn_show);
-        }
-      });
-      let nBlock = 0;
-      mu.addedNodes.forEach(node => {
-        if (!node.classList.contains('plurk')) return;
-        const u0 = $(node).find('a.name')[0].href.split('/').pop();
+    const po = new plurklib.PlurkObserver(prs => prs.forEach(pr => {
+      pr.plurks.forEach(plurk => {
+        const u0 = plurk.target.querySelector('a.name').href.split('/').pop();
         if (isOnBlockList(u0)) {
-          nBlock += 1;
-          node.classList.add('shadow-block');
-          if (!$btn.hasClass('show')) node.classList.add('hide');
+          plurk.target.classList.add('shadow-block', 'hide');
+          if (plurk.isResponse) {
+            pr.target.parentElement.querySelector('.resp-hidden-show')
+              ?.classList.remove('hide');
+          }
         }
       });
-      if ($btn.hasClass('hide') && nBlock) $btn.removeClass('hide');
-    });
+    }));
+    po.observe({ plurk: true });
   }
 
   function makeButton ($responseBox) {
+    if (!$responseBox.length) return;
     const $formBtn = $('<div>' + lang.resp_btn_show + '</div>');
     $formBtn.on('click', function () {
       $formBtn.toggleClass('show');
       this.innerText =
         $formBtn.hasClass('show') ? lang.resp_btn_hide : lang.resp_btn_show;
-      $responseBox.children('.list').children('.shadow-block')
-        .toggleClass('hide');
+      const $blocks = $responseBox.children('.list').children('.shadow-block');
+      if ($formBtn.hasClass('show')) $blocks.removeClass('hide');
+      else $blocks.addClass('hide');
     }).addClass(['resp-hidden-show', 'button', 'small-button', 'hide'])
       .insertAfter($responseBox.find('.response-only-owner'));
+    (new MutationObserver(mrs => mrs.forEach(mr => {
+      if (!mr.target.querySelector('.handle-remove')) {
+        $('<div class="handle-remove hide"></div>').prependTo(mr.target);
+      }
+      mr.removedNodes.forEach(node => {
+        if (node.classList.contains('handle-remove')) {
+          $formBtn.removeClass('show').addClass('hide').text(lang.resp_btn_show);
+        }
+      });
+    }))).observe($responseBox.find('.list').first()[0], { childList: true });
   }
 
   function makeBlockedUserItem (info, holder) {
