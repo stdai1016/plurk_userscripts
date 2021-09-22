@@ -5,14 +5,13 @@
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
 // @match        https://www.plurk.com/*
 // @exclude      https://www.plurk.com/_*
-// @version      0.4.0a
+// @version      0.4.0b
 // @license      MIT
 // @require      https://code.jquery.com/jquery-3.5.1.min.js
 // @require      https://github.com/stdai1016/plurk_userscripts/raw/plurklib/plurklib/plurk_lib.user.js
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        window.onurlchange
 // ==/UserScript==
 
 /* jshint esversion: 6 */
@@ -47,23 +46,46 @@
     }
   };
   let lang = LANG.DEFAULT;
-  const curLang = document.body.parentElement.getAttribute('lang') || '';
+  const curLang = document.documentElement.getAttribute('lang') || '';
   if (curLang.toLowerCase() in LANG) lang = LANG[curLang.toLowerCase()];
 
+  if (typeof plurklib === 'undefined') {
+    console.error('plurklib load failed!');
+    return;
+  }
+  const pageUserId = plurklib.getPageUserData()?.id;
+  const currUserId = plurklib.getUserData()?.id;
+
   /* ======= storage ======= */
+  /** Struct in GM storage:
+   *  {
+   *    "u${userId}": {
+   *      "replurk": <bool>, // block replurks from blocked users
+   *      "response": <bool>, // block responses from blocked users
+   *      "blocked_users": [
+   *        {
+   *          id: <number>, // user id
+   *          nick_name: <string>, // for readability
+   *          date: <UTC_datetime_string>
+   *        }
+   *      ]
+   *    }
+   *  }
+   */
   const DEFAULT_VALUE = {
     replurk: true,
     response: true,
-    blocklist: []
+    blocked_users: []
   };
-  Object.keys(DEFAULT_VALUE).forEach(k => {
-    if (typeof GM_getValue(k) !== typeof DEFAULT_VALUE[k]) {
-      GM_setValue(k, DEFAULT_VALUE[k]);
-    }
-  });
   function valueGetSet (key, val = null) {
     if (val != null) GM_setValue(key, val);
     return GM_getValue(key);
+  }
+
+  const USER_ID = `u${currUserId}`;
+  let conf = valueGetSet(USER_ID);
+  if (typeof conf !== 'object' || conf === null) {
+    conf = valueGetSet(USER_ID, DEFAULT_VALUE);
   }
 
   /* ============== */
@@ -76,12 +98,6 @@
     '.resp-hidden-show:hover {background:#afb8cc;color:#fff}'
   );
 
-  if (typeof plurklib === 'undefined') {
-    console.error('plurklib load failed!');
-    return;
-  }
-  const pageUserId = plurklib.getPageUserData()?.id;
-  const currUserId = plurklib.getUserData()?.id;
   if (window.location.pathname === '/Friends/') {
     $('<li><a void="">' + lang.set_tab + '</a></li>').on('click', function () {
       window.history.pushState('', document.title, '/Friends/');
@@ -96,8 +112,8 @@
         ' <div class="empty">' + lang.set_empty + '</div>' +
         '</div>');
       const $holder = $('<div class="item_holder"></div>').appendTo($content);
-      const usersInfo = Array.from(valueGetSet('blocklist'),
-        id => getUserInfoAsync(null, id));
+      const usersInfo =
+        conf.blocked_users.map(u => plurklib.fetchUserInfo(u.id));
       if (usersInfo.length) $content.find('.dashboard .empty').addClass('hide');
       Promise.all(usersInfo).then(infomations => infomations.forEach(info => {
         makeBlockedUserItem(info, $holder);
@@ -105,25 +121,28 @@
       $content.find('.search_box>button').on('click', function () {
         const m = this.parentElement.children[0].value.match(/^[A-Za-z]\w+$/);
         if (m) {
-          const blocklist = valueGetSet('blocklist');
-          blocklist.push(m[0]);
-          valueGetSet('blocklist', blocklist);
           this.parentElement.children[0].value = '';
           $content.find('.dashboard .empty').addClass('hide');
-          getUserInfoAsync(null, m[0])
-            .then(info => makeBlockedUserItem(info, $holder));
+          plurklib.fetchUserInfo(m[0]).then(info => {
+            makeBlockedUserItem(info, $holder);
+            conf.blocked_users.push({
+              id: info.id,
+              nick_name: info.nick_name,
+              date: (new Date()).toUTCString()
+            });
+            valueGetSet(USER_ID, conf);
+          });
         } else { window.alert(lang.set_alert); }
       });
     }).appendTo('#pop-window-tabs>ul');
   } else if (pageUserId === currUserId ||
-    window.location.pathname.match(/^\/p\/[A-Za-z]\w+$/)) {
+    window.location.pathname.match(/^\/p\/[0-9a-z]$/)) {
     makeButton($('#plurk_responses>.response_box'));
     makeButton($('#form_holder>.response_box'));
     makeButton($('#cbox_response>.response_box'));
     const po = new plurklib.PlurkObserver(prs => prs.forEach(pr => {
       pr.plurks.forEach(plurk => {
-        const u0 = plurk.target.querySelector('a.name').href.split('/').pop();
-        if (isOnBlockList(u0)) {
+        if (isOnBlockList(plurk.owner_id)) {
           plurk.target.classList.add('shadow-block', 'hide');
           if (plurk.isResponse) {
             pr.target.parentElement.querySelector('.resp-hidden-show')
@@ -174,17 +193,16 @@
         `<span class="nick_name">@${info.nick_name}</span>` +
         '<div class="more_info"><br></div>' +
       '</div>',
-      `<div class="user_action"><a void="" data-id="${info.nick_name}" ` +
+      `<div class="user_action"><a void="" data-uid="${info.id}" ` +
         'class="friend_man icon_only pif-user-blocked has_block" ' +
         `title="${lang.set_remove}"></a></div>`
     );
     $u.find('a:not(.has_block)').attr('href', '/' + info.nick_name);
     $u.find('a.has_block').on('click', function () {
-      const blocklist = valueGetSet('blocklist');
-      for (let i = 0; i < blocklist.length; ++i) {
-        if (blocklist[i] === this.dataset.id) {
-          blocklist.splice(i, 1);
-          valueGetSet('blocklist', blocklist);
+      for (let i = 0; i < conf.blocked_users.length; ++i) {
+        if (conf.blocked_users[i].id === parseInt(this.dataset.uid)) {
+          conf.blocked_users.splice(i, 1);
+          valueGetSet(USER_ID, conf);
           $u.remove();
           break;
         }
@@ -193,27 +211,15 @@
     $u.appendTo(holder);
   }
 
-  async function getUserInfoAsync (id = null, nickName = null) {
-    if (!id) {
-      try {
-        const resp = await fetch(`https://www.plurk.com/${nickName}`);
-        const html = await resp.text();
-        const doc = (new DOMParser()).parseFromString(html, 'text/html');
-        const h = doc.querySelector('#num_of_fans').parentElement.href;
-        id = h.match(/user_id=(\d+)$/)[1];
-      } catch (e) { id = ''; }
-    }
-    const resp = await fetch('https://www.plurk.com/Users/fetchUserInfo', {
-      credentials: 'same-origin',
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: `user_id=${id}`
-    });
-    if (!resp.ok) throw Error(`Cannot get user info: ${id} (${nickName})`);
-    return resp.json();
-  }
-
   function isOnBlockList (user) {
-    return valueGetSet('blocklist').includes(user);
+    switch (typeof user) {
+      case 'string':
+        return conf.blocked_users.map(u => u.nick_name).includes(user);
+      case 'number':
+        return conf.blocked_users.map(u => u.id).includes(user);
+      case 'object':
+        return conf.blocked_users.map(u => u.id).includes(user?.id);
+    }
+    return false;
   }
 })();
