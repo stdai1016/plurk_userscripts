@@ -8,8 +8,8 @@
 
 | Userscripts | 簡介 | 安裝 | 更多說明 |
 |-------------|------|------|---------|
-|[plurk_custom_theme_ex](./plurk_custom_theme_ex.user.js)|擴展噗浪的自訂佈景功能|[GF](https://greasyfork.org/zh-TW/scripts/432268-plurk-custom-theme-ex)||
-|~~[plurk_shadow_block](./plurk_shadow_block.user.js)~~      |隱形封鎖使用者||[MD](./plurk_shadow_block.md)|
+|[plurk_custom_theme_ex](./plurk_custom_theme_ex.user.js)  |擴展噗浪的自訂佈景功能|[GF](https://greasyfork.org/zh-TW/scripts/432268-plurk-custom-theme-ex)||
+|[plurk_shadow_block](./plurk_shadow_block.user.js)        |隱形封鎖使用者|[GF](https://greasyfork.org/zh-TW/scripts/422595-plurk-shadow-block)|[MD](./plurk_shadow_block.md)|
 |[plurk_show_alias_name](./plurk_show_alias_name.user.js)**|在每個使用者的暱稱下面顯示別名|||
 
 ** 需要擁有噗幣的才能使用的功能

@@ -10,8 +10,8 @@ Click Markdown (MD) to earn more about the userscript
 
 | Userscripts | Brief Description | Site | More |
 |-------------|-------------------|------|------|
-|[plurk_custom_theme_ex](./plurk_custom_theme_ex.user.js) |Expand Plurk custom theme|[GF](https://greasyfork.org/zh-TW/scripts/432268-plurk-custom-theme-ex)||
-|~~[plurk_shadow_block](./plurk_shadow_block.user.js)~~       |Shadow blocks users||[MD](./plurk_shadow_block.md)|
+|[plurk_custom_theme_ex](./plurk_custom_theme_ex.user.js)  |Expand Plurk custom theme|[GF](https://greasyfork.org/zh-TW/scripts/432268-plurk-custom-theme-ex)||
+|[plurk_shadow_block](./plurk_shadow_block.user.js)        |Shadow blocks users|[GF](https://greasyfork.org/zh-TW/scripts/422595-plurk-shadow-block)|[MD](./plurk_shadow_block.md)|
 |[plurk_show_alias_name](./plurk_show_alias_name.user.js)**|Shows alias name of each user under display name|
 
 ** You need have a plurk premium account.
