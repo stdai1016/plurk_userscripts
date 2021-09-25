@@ -3,7 +3,7 @@
 // @name:zh-TW   噗浪隱形黑名單
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
-// @version      0.4.0f
+// @version      0.4.0
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @match        https://www.plurk.com/*
