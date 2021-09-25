@@ -3,7 +3,7 @@
 // @name:zh-TW   噗浪隱形黑名單
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
-// @version      0.4.0e
+// @version      0.4.0f
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @match        https://www.plurk.com/*
@@ -167,8 +167,8 @@
           this.parentElement.children[0].value = '';
           $content.find('.dashboard .empty').addClass('hide');
           plurklib.fetchUserInfo(m[0]).then(info => {
-            makeBlockedUserItem(info, $holder);
             blockedList.add(info);
+            makeBlockedUserItem(info, $holder);
           }).catch(e => {
             window.alert(`Unknown user "${m[0]}"`);
           });
@@ -232,10 +232,14 @@
 
   function makeBlockedUserItem (info, holder) {
     const user = blockedList.get(info.id);
+    if (info.nick_name && info.nick_name !== user.nick_name) {
+      user.nick_name = info.nick_name;
+      blockedList.add(user);
+    }
+    blockedList.add(user);
     const $u = $('<div class="user_item user_shadow_blocked_users_item"></div>');
-    info.avatar = info.avatar || '';
     const img = info.has_profile_image
-      ? `https://avatars.plurk.com/${info.id}-medium${info.avatar}.gif`
+      ? `https://avatars.plurk.com/${info.id}-medium${info.avatar ?? ''}.gif`
       : 'https://www.plurk.com/static/default_medium.jpg';
     $u.append([
       '<a class="user_avatar" target="_blank">',
@@ -243,47 +247,38 @@
       '</a>',
       '<div class="user_info">',
       '  <a class="user_link" target="_blank"',
-      `     style="color:#000">'${info.display_name}</a>`,
+      `     style="color:#000">${info.display_name}</a>`,
       `  <span class="nick_name">@${info.nick_name}</span>`,
       '  <div class="more_info"><br></div>',
       '</div>',
       '<div class="user_action">',
-      `  <a void="" data-uid="${info.id}" title="${lang.set_replurk}"`,
+      `  <a void="" data-switch="replurk" title="${lang.set_replurk}"`,
       '     class="friend_man icon_only pif-replurk',
       `            ${user.replurk ? 'has_block' : 'not_block'}"></a>`,
-      `  <a void="" data-uid="${info.id}" title="${lang.set_response}"`,
+      `  <a void="" data-switch="response" title="${lang.set_response}"`,
       '     class="friend_man icon_only pif-message',
       `            ${user.response ? 'has_block' : 'not_block'}"></a>`,
-      `  <a void="" data-uid="${info.id}" title="${lang.set_remove}"`,
+      `  <a void="" data-remove="1" title="${lang.set_remove}"`,
       '     class="friend_man icon_only pif-user-blocked has_block"></a>',
       '</div>'
     ].join(''));
     $u.find('a:not(.icon_only)').attr('href', '/' + info.nick_name);
-    $u.find('a.pif-replurk').on('click', function () {
-      user.replurk = !user.replurk;
-      if (user.replurk) {
-        this.classList.add('has_block');
-        this.classList.remove('not_block');
-      } else {
-        this.classList.remove('has_block');
-        this.classList.add('not_block');
+    $u.find('a.icon_only').on('click', function () {
+      if (this.dataset.switch) {
+        user[this.dataset.switch] = !user[this.dataset.switch];
+        if (user[this.dataset.switch]) {
+          this.classList.add('has_block');
+          this.classList.remove('not_block');
+        } else {
+          this.classList.remove('has_block');
+          this.classList.add('not_block');
+        }
+        blockedList.add(user);
       }
-      blockedList.add(user);
-    });
-    $u.find('a.pif-message').on('click', function () {
-      user.response = !user.response;
-      if (user.response) {
-        this.classList.add('has_block');
-        this.classList.remove('not_block');
-      } else {
-        this.classList.remove('has_block');
-        this.classList.add('not_block');
+      if (this.dataset.remove) {
+        blockedList.remove(user.id);
+        $u.remove();
       }
-      blockedList.add(user);
-    });
-    $u.find('a.pif-user-blocked').on('click', function () {
-      blockedList.remove(this.dataset.uid);
-      $u.remove();
     });
     $u.appendTo(holder);
   }
