@@ -3,7 +3,7 @@
 // @name:zh-TW   噗浪隱形黑名單
 // @description  Shadow blocks user (only blocks on responses and timeline of yourself)
 // @description:zh-TW 隱形封鎖使用者（只是會在回應和在河道上看不到被封鎖者的發文、轉噗，其他正常）
-// @version      0.4.0d
+// @version      0.4.0
 // @license      MIT
 // @namespace    https://github.com/stdai1016
 // @match        https://www.plurk.com/*
@@ -32,6 +32,8 @@
         ' but is still able to see your profile, follow you,' +
         ' respond to your plurks or befriend you.',
       set_remove: 'Remove',
+      set_replurk: 'Block replurks',
+      set_response: 'Block responses',
       set_tab: 'Shadow Block'
     },
     'zh-hant': {
@@ -43,6 +45,8 @@
       set_note: '在回應區和自己的河道上看不到被封鎖者的發文、轉噗；' +
         '但對方仍可瀏覽您的個人檔案，關注、回應您的訊息，或加您為朋友。',
       set_remove: '移除',
+      set_replurk: '封鎖轉噗',
+      set_response: '封鎖回應',
       set_tab: '隱形黑名單'
     }
   };
@@ -84,9 +88,9 @@
       _blockedUsers[`b${user.id}`] = {
         id: user.id,
         nick_name: user.nick_name,
-        replurk: true,
-        response: true,
-        date: (new Date()).toUTCString()
+        replurk: user.replurk ?? true,
+        response: user.response ?? true,
+        date: user.date ?? (new Date()).toUTCString()
       };
       valueGetSet(_blockedUsers);
     },
@@ -113,12 +117,16 @@
         callbackfn(_blockedUsers[i], i, _blockedUsers);
       }
     },
-    get length () { return _blockedUsers.length; }
+    get length () { return Object.keys(_blockedUsers).length; }
   };
 
   /* ============== */
   GM_addStyle(
     '.hide {display:none}' +
+    '.item_holder .user_item.user_shadow_blocked_users_item .user_info {' +
+    '  width: calc(100% - 190px);}' +
+    '.friend_man.not_block {background-color:#999;}' +
+    '.friend_man.not_block:hover {background-color:#207298}' +
     '.resp-hidden-show {background:#f5f5f9;color:#afb8cc;' +
     '  font-weight:normal;vertical-align:top;transform:scale(0.9);opacity:0;}' +
     '.resp-hidden-show.show {opacity:1}' +
@@ -159,8 +167,8 @@
           this.parentElement.children[0].value = '';
           $content.find('.dashboard .empty').addClass('hide');
           plurklib.fetchUserInfo(m[0]).then(info => {
-            makeBlockedUserItem(info, $holder);
             blockedList.add(info);
+            makeBlockedUserItem(info, $holder);
           }).catch(e => {
             window.alert(`Unknown user "${m[0]}"`);
           });
@@ -223,28 +231,54 @@
   }
 
   function makeBlockedUserItem (info, holder) {
-    const $u = $('<div class="user_item user_blocked_users_item"></div>');
-    info.avatar = info.avatar || '';
+    const user = blockedList.get(info.id);
+    if (info.nick_name && info.nick_name !== user.nick_name) {
+      user.nick_name = info.nick_name;
+      blockedList.add(user);
+    }
+    blockedList.add(user);
+    const $u = $('<div class="user_item user_shadow_blocked_users_item"></div>');
     const img = info.has_profile_image
-      ? `https://avatars.plurk.com/${info.id}-medium${info.avatar}.gif`
+      ? `https://avatars.plurk.com/${info.id}-medium${info.avatar ?? ''}.gif`
       : 'https://www.plurk.com/static/default_medium.jpg';
-    $u.append(
-      '<a class="user_avatar" target="_blank">' +
-        `<img class="profile_pic" src="${img}"></img></a>`,
-      '<div class="user_info">' +
-        '<a class="user_link" target="_blank" style="color:#000">' +
-          `${info.display_name}</a>` +
-        `<span class="nick_name">@${info.nick_name}</span>` +
-        '<div class="more_info"><br></div>' +
+    $u.append([
+      '<a class="user_avatar" target="_blank">',
+      `  <img class="profile_pic" src="${img}"></img>`,
+      '</a>',
+      '<div class="user_info">',
+      '  <a class="user_link" target="_blank"',
+      `     style="color:#000">${info.display_name}</a>`,
+      `  <span class="nick_name">@${info.nick_name}</span>`,
+      '  <div class="more_info"><br></div>',
       '</div>',
-      `<div class="user_action"><a void="" data-uid="${info.id}" ` +
-        'class="friend_man icon_only pif-user-blocked has_block" ' +
-        `title="${lang.set_remove}"></a></div>`
-    );
-    $u.find('a:not(.has_block)').attr('href', '/' + info.nick_name);
-    $u.find('a.has_block').on('click', function () {
-      blockedList.remove(this.dataset.uid);
-      $u.remove();
+      '<div class="user_action">',
+      `  <a void="" data-switch="replurk" title="${lang.set_replurk}"`,
+      '     class="friend_man icon_only pif-replurk',
+      `            ${user.replurk ? 'has_block' : 'not_block'}"></a>`,
+      `  <a void="" data-switch="response" title="${lang.set_response}"`,
+      '     class="friend_man icon_only pif-message',
+      `            ${user.response ? 'has_block' : 'not_block'}"></a>`,
+      `  <a void="" data-remove="1" title="${lang.set_remove}"`,
+      '     class="friend_man icon_only pif-user-blocked has_block"></a>',
+      '</div>'
+    ].join(''));
+    $u.find('a:not(.icon_only)').attr('href', '/' + info.nick_name);
+    $u.find('a.icon_only').on('click', function () {
+      if (this.dataset.switch) {
+        user[this.dataset.switch] = !user[this.dataset.switch];
+        if (user[this.dataset.switch]) {
+          this.classList.add('has_block');
+          this.classList.remove('not_block');
+        } else {
+          this.classList.remove('has_block');
+          this.classList.add('not_block');
+        }
+        blockedList.add(user);
+      }
+      if (this.dataset.remove) {
+        blockedList.remove(user.id);
+        $u.remove();
+      }
     });
     $u.appendTo(holder);
   }
